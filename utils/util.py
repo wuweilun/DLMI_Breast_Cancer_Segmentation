@@ -18,7 +18,7 @@ def bce_dice_loss(inputs, target):
 
 def to_numpy(tensor):
     # Move tensor to CPU and convert to NumPy array
-    return tensor.cpu().detach().item()
+    return tensor.cpu().detach().numpy()
 
 def plot_metrics(metrics, image_path, model_name):
     num_epochs = len(metrics['train_losses'])
@@ -76,4 +76,34 @@ def plot_subplots(image, mask, predicted, threshold, image_path, model_name, i):
         ax.axis('off')
 
     plt.savefig(f'./{image_path}/{model_name}_{i}.png')  # Save the figure to a file
+    plt.close()
+
+def plot_predictions(image, mask, predictions, titles, threshold, image_path, idx):
+
+    # plt.figure(figsize=(20, 10)) 
+    num_images = len(predictions) + 2  
+    plt.figure(figsize=(num_images * 3, 4))  
+
+    plt.subplot(1, len(predictions) + 2, 1)
+    plt.imshow(image.squeeze(), cmap='gray') 
+    if idx == 2:
+        plt.title('Original Image', fontsize=28)
+    plt.axis('off')
+
+    plt.subplot(1, len(predictions) + 2, 2)
+    plt.imshow(mask.squeeze(), cmap='gray')
+    if idx == 2:
+        plt.title('Ground Truth', fontsize=28)
+    plt.axis('off')
+
+    for i, pred in enumerate(predictions):
+        plt.subplot(1, len(predictions) + 2, i + 3)
+        predicted_np_thresholded = threshold_prediction(pred, threshold)
+        plt.imshow(predicted_np_thresholded.squeeze(), cmap='gray')
+        if idx == 2:
+            plt.title(titles[i], fontsize=28)
+        plt.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(f'./{image_path}/predict_{idx}.png')  # Save the figure to a file
     plt.close()

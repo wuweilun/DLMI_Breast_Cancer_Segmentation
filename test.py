@@ -11,7 +11,7 @@ import torch
 import torchvision.transforms as transforms
 from torchvision import models
 from sklearn.model_selection import train_test_split
-from utils import CustomDataset, bce_dice_loss, Trainer, plot_metrics, plot_subplots
+from utils import CustomDataset, bce_dice_loss, Trainer, plot_metrics, plot_subplots, plot_predictions
 import segmentation_models_pytorch as smp
 
 def get_model(model_name):
@@ -36,8 +36,7 @@ def get_model(model_name):
     else:
         raise ValueError("Model name not supported!")
     
-model_name = sys.argv[1]
-image_path = sys.argv[2]
+image_path = sys.argv[1]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 masks = glob.glob("Dataset_BUSI_with_GT/*/*_mask.png")
@@ -64,13 +63,30 @@ batch_size = 8
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-model = get_model(model_name).to(device)
-epochs = 100
-learning_rate = 0.0001
-weight_decay = 1e-6
+model_names = ["unet", "unet++", "manet", "linknet", "fpn", "pspnet", "pan", "deeplabv3", "deeplabv3+"]
 
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-trainer = Trainer(model=model, model_name=model_name, num_epochs=epochs, optimizer=optimizer, criterion=bce_dice_loss, device=device, project_name="DLMI_HW")
+for i in [2, 3, 10, 20, 55, 67, 87, 96, 110, 130, 150]:
+    predictions = []
+    titles = []
+    image = test_dataset[i][0]
+    mask = test_dataset[i][1]
+    image = image.to(device)
+    for model_name in model_names:
+        model = get_model(model_name).to(device)
 
-trainer.train(train_dataloader, test_dataloader)
+        checkpoint_path = f'./log/{model_name}_best.pth'
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint)
+        model.eval() 
+        
+        with torch.no_grad(): 
+            image_tensor = image.to(device).unsqueeze(0)  
+            pred = model(image_tensor)
+            pred = torch.sigmoid(pred)  
+            pred = pred.squeeze().cpu()  
+        
+        predictions.append(pred.numpy())  
+        titles.append(model_name)  
+
+    plot_predictions(image.cpu().numpy(), mask.cpu().numpy(), predictions, titles, 0.5, image_path, i)
